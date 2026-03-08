@@ -1,14 +1,14 @@
-# LED HTTP Service for ALLNET Meeting Room Tablet
+# LED HTTP Service for ALLNET Meeting Room Tablet (RK3399)
 
 ## Overview
-LED HTTP Service is a specialized Android application designed for the **ALLNET Meeting Room RGB LED Tablet** (RK3399). It acts as a bridge between your network and the tablet's hardware LED bar, exposing a local HTTP API to control the light frame remotely.
+LED HTTP Service is an Android application specifically designed for the **ALLNET Meeting Room RGB LED Tablet RK3399 Android 10**. It acts as a bridge between your network and the tablet's hardware LED bar, exposing a local HTTP API to control the light frame remotely.
 
 The app is built to be a robust background utility, running as a persistent Foreground Service that automatically starts on system boot. This ensures that the LED control remains available at all times without manual intervention, making it ideal for integration with room booking systems, automation platforms, or status indicators.
 
 ## Features
 - **Local HTTP API**: Lightweight server (NanoHTTPD) running on port 8080.
 - **Hardware LED Control**: Direct manipulation of the RGB LED bar via root-level sysfs commands.
-- **Smart Display Management**: Automatically wakes the tablet display before every LED command, as required by the hardware.
+- **Smart Display Management**: Automatically wakes the tablet display before every LED command sequence, as required by the hardware.
 - **Persistent State**: Remembers the last set mode across service restarts and reboots.
 - **Auto-Start on Boot**: Automatically initializes the service when the tablet finishes booting.
 - **Foreground Service**: Ensures Android does not kill the process during background operation.
@@ -16,25 +16,25 @@ The app is built to be a robust background utility, running as a persistent Fore
 
 ## Hardware / Target Device
 This application is specifically developed and tested for:
-- **Device**: ALLNET Meeting Room RGB LED Tablet (10" or 15" variants).
+- **Device**: ALLNET Meeting Room RGB LED Tablet RK3399 Android 10 (10" or 15" variants).
 - **Chipset**: Rockchip RK3399.
-- **OS**: Android 10.
+- **OS**: Android 10 (API 29).
 - **Requirement**: The device **must have root access** for the shell commands to reach the hardware platform.
 
 ## How It Works
 ### Hardware Command
 The LED bar is controlled by writing specific hex codes to the kernel's platform driver:
-`echo 'w $CODE' > /sys/devices/platform/led_con_h/zigbee_reset`
+`sh -c "echo 'w $CODE' > /sys/devices/platform/led_con_h/zigbee_reset"`
 
 ### Display Wake Logic
 On this specific hardware, the LED controller only accepts state changes when the display is active. Before every command sequence, the app executes:
 `input keyevent KEYCODE_WAKEUP`
 
 ### Power-On Sequence
-If the device is currently in the `off` mode, it must be logically "powered on" before a color can be applied. When switching from `off` or `unknown` to a color/effect, the app:
+If the device is currently in the `off` mode, it must be logically "powered on" before a color can be applied. When switching from `off` or `unknown` to a color/effect (not `off` or `on`), the app:
 1. Wakes the display.
 2. Sends the internal `on` (0x03) command.
-3. Waits for the hardware to stabilize (approx. 200-500ms).
+3. Waits for the hardware to stabilize (approx. 500ms).
 4. Sends the requested target mode.
 
 ## LED Modes
