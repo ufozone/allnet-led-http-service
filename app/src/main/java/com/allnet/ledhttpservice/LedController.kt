@@ -2,14 +2,21 @@ package com.allnet.ledhttpservice
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 
 /**
  * Singleton controller for handling LED hardware commands.
  * Maps mode names to hardware hex codes and handles device-specific power behavior with disk persistence.
  */
 object LedController {
+    private const val TAG = "LedController"
     private const val PREFS_NAME = "LedControllerPrefs"
     private const val KEY_LAST_MODE = "last_mode"
+
+    // Timing Constants
+    private const val DELAY_WAKE = 200L
+    private const val DELAY_POST_ON = 500L
+    private const val DELAY_REPEAT_TARGET = 150L
 
     // LinkedHashMap to preserve the logical order of modes
     private val modeMap = linkedMapOf(
@@ -83,32 +90,61 @@ object LedController {
         val code = modeMap[normalizedMode] ?: return false
         val currentLastMode = getLastMode()
 
+        Log.d(TAG, "Setting LED mode to: $normalizedMode (Current state: $currentLastMode)")
+
         // 1. Always call WakeHelper.wakeDevice()
+        Log.d(TAG, "Step 1: Waking device display.")
         WakeHelper.wakeDevice()
 
         // 2. Always wait 200ms
-        try { Thread.sleep(200) } catch (e: InterruptedException) { /* ignore */ }
+        sleep(DELAY_WAKE)
 
-        // 3. Conditional 'on' command for transition from off/unknown to a specific mode
+        // 3. Conditional sequence for transition from OFF/UNKNOWN to a specific color/effect
         if ((currentLastMode == "off" || currentLastMode == "unknown") && 
             (normalizedMode != "off" && normalizedMode != "on")) {
             
+            Log.d(TAG, "Step 3: Transition detected from $currentLastMode. Sending internal ON command.")
             val onResult = ShellExecutor.executeRootCommand(getCommand("0x03"))
-            if (!onResult) return false
+            if (!onResult) {
+                Log.e(TAG, "Internal ON command failed. Aborting sequence.")
+                return false
+            }
             
-            try { Thread.sleep(200) } catch (e: InterruptedException) { /* ignore */ }
+            sleep(DELAY_POST_ON)
+
+            Log.d(TAG, "Step 3 (Cont.): Sending target mode command (1st attempt): $normalizedMode")
+            val targetResult1 = ShellExecutor.executeRootCommand(getCommand(code))
+            if (!targetResult1) {
+                Log.e(TAG, "First attempt for mode $normalizedMode failed. Aborting sequence.")
+                return false
+            }
+
+            sleep(DELAY_REPEAT_TARGET)
         }
 
         // 4. Always execute the root command for the target code as the final step
+        Log.d(TAG, "Step 4: Sending target mode command (Final attempt): $normalizedMode")
         val success = ShellExecutor.executeRootCommand(getCommand(code))
 
         // 5. If successful, persist normalizedMode to lastMode
         if (success) {
+            Log.d(TAG, "Command sequence completed successfully. Persisting mode: $normalizedMode")
             getPrefs().edit().putString(KEY_LAST_MODE, normalizedMode).apply()
+        } else {
+            Log.e(TAG, "Final attempt for mode $normalizedMode failed.")
         }
 
         // 6. Return the final success status
         return success
+    }
+
+    private fun sleep(millis: Long) {
+        try {
+            Thread.sleep(millis)
+        } catch (e: InterruptedException) {
+            Log.w(TAG, "Sleep interrupted: ${e.message}")
+            Thread.currentThread().interrupt()
+        }
     }
 
     private fun getCommand(code: String): String {
