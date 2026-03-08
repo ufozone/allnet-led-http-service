@@ -17,6 +17,9 @@ class LedService : Service() {
     private var httpServer: LedHttpServer? = null
 
     override fun onCreate() {
+        // Critical: Initialize LedController first to ensure persistence works for all subsequent calls
+        LedController.init(this)
+
         super.onCreate()
         createNotificationChannel()
         

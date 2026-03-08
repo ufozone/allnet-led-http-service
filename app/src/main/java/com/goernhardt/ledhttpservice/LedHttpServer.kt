@@ -15,9 +15,8 @@ class LedHttpServer(port: Int) : NanoHTTPD(port) {
             uri == "/health" -> jsonResponse("""{"success": true}""")
             
             uri == "/status" -> jsonResponse("""{
-                "success": true, 
-                "service": "allnet-led-http", 
-                "port": 8080, 
+                "success": true,
+                "service": "allnet-led-http",
                 "lastMode": "${LedController.getLastMode()}"
             }""")
             

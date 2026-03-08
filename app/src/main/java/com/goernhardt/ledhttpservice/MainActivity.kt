@@ -6,11 +6,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.SettingsInputComponent
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.goernhardt.ledhttpservice.ui.theme.LEDHTTPServiceTheme
 import java.net.Inet4Address
@@ -18,8 +24,10 @@ import java.net.NetworkInterface
 
 /**
  * Main activity showing the LED HTTP Service status and manual test controls.
+ * Refined with Material 3 and optimized for tablet/grid layout.
  */
 class MainActivity : ComponentActivity() {
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -29,7 +37,17 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             LEDHTTPServiceTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    topBar = {
+                        CenterAlignedTopAppBar(
+                            title = { Text("LED HTTP Service") },
+                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer
+                            )
+                        )
+                    }
+                ) { innerPadding ->
                     DashboardScreen(modifier = Modifier.padding(innerPadding))
                 }
             }
@@ -42,26 +60,90 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
     val ipAddress = remember { getLocalIpAddress() ?: "Unknown" }
     val modes = remember { LedController.getAvailableModes() }
 
-    Column(modifier = modifier.padding(16.dp).fillMaxSize()) {
-        Text("Service Status: Running", style = MaterialTheme.typography.headlineMedium)
-        Text("IP Address: $ipAddress", style = MaterialTheme.typography.bodyLarge)
-        Text("Port: 8080", style = MaterialTheme.typography.bodyLarge)
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text("Test Controls (Modes: ${modes.size})", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Service Information Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            ),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Rounded.SettingsInputComponent,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Status: Running",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+                
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.1f)
+                )
+                
+                Text(
+                    "Network Address: $ipAddress",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    "Service Port: 8080",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+
+        Text(
+            "Available Modes",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier
+                .align(Alignment.Start)
+                .padding(bottom = 12.dp, start = 8.dp),
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        // Mode Grid
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 160.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(modes) { mode ->
-                Button(
+                FilledTonalButton(
                     onClick = { LedController.setLed(mode) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(8.dp)
                 ) {
-                    Text("Set Mode: $mode")
+                    Text(
+                        mode.replace("_", " ").uppercase(),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
