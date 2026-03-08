@@ -16,7 +16,6 @@ object LedController {
     // Timing Constants
     private const val DELAY_WAKE = 200L
     private const val DELAY_POST_ON = 500L
-    private const val DELAY_REPEAT_TARGET = 150L
 
     // LinkedHashMap to preserve the logical order of modes
     private val modeMap = linkedMapOf(
@@ -90,51 +89,37 @@ object LedController {
         val code = modeMap[normalizedMode] ?: return false
         val currentLastMode = getLastMode()
 
-        Log.d(TAG, "Setting LED mode to: $normalizedMode (Current state: $currentLastMode)")
+        Log.d(TAG, "Request: $normalizedMode (Previous: $currentLastMode)")
 
-        // 1. Always call WakeHelper.wakeDevice()
-        Log.d(TAG, "Step 1: Waking device display.")
+        // 1. Always wake the device and wait for stabilization
         WakeHelper.wakeDevice()
-
-        // 2. Always wait 200ms
         sleep(DELAY_WAKE)
 
-        // 3. Conditional sequence for transition from OFF/UNKNOWN to a specific color/effect
+        // 2. Handle transition from OFF/UNKNOWN to a specific color or effect
         if ((currentLastMode == "off" || currentLastMode == "unknown") && 
             (normalizedMode != "off" && normalizedMode != "on")) {
             
-            Log.d(TAG, "Step 3: Transition detected from $currentLastMode. Sending internal ON command.")
+            Log.d(TAG, "State transition detected. Sending internal ON command (0x03).")
             val onResult = ShellExecutor.executeRootCommand(getCommand("0x03"))
             if (!onResult) {
-                Log.e(TAG, "Internal ON command failed. Aborting sequence.")
+                Log.e(TAG, "Internal ON command failed. Aborting.")
                 return false
             }
-            
             sleep(DELAY_POST_ON)
-
-            Log.d(TAG, "Step 3 (Cont.): Sending target mode command (1st attempt): $normalizedMode")
-            val targetResult1 = ShellExecutor.executeRootCommand(getCommand(code))
-            if (!targetResult1) {
-                Log.e(TAG, "First attempt for mode $normalizedMode failed. Aborting sequence.")
-                return false
-            }
-
-            sleep(DELAY_REPEAT_TARGET)
         }
 
-        // 4. Always execute the root command for the target code as the final step
-        Log.d(TAG, "Step 4: Sending target mode command (Final attempt): $normalizedMode")
+        // 3. Execute the target mode command (one-shot)
+        Log.d(TAG, "Executing target mode: $normalizedMode ($code)")
         val success = ShellExecutor.executeRootCommand(getCommand(code))
 
-        // 5. If successful, persist normalizedMode to lastMode
+        // 4. Persist and return
         if (success) {
-            Log.d(TAG, "Command sequence completed successfully. Persisting mode: $normalizedMode")
+            Log.d(TAG, "Successfully applied $normalizedMode.")
             getPrefs().edit().putString(KEY_LAST_MODE, normalizedMode).apply()
         } else {
-            Log.e(TAG, "Final attempt for mode $normalizedMode failed.")
+            Log.e(TAG, "Failed to apply $normalizedMode.")
         }
 
-        // 6. Return the final success status
         return success
     }
 
