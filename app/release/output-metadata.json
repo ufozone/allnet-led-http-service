@@ -4,7 +4,7 @@
     "type": "APK",
     "kind": "Directory"
   },
-  "applicationId": "com.goernhardt.ledhttpservice",
+  "applicationId": "com.allnet.ledhttpservice",
   "variantName": "release",
   "elements": [
     {

@@ -1,4 +1,4 @@
-package com.goernhardt.ledhttpservice
+package com.allnet.ledhttpservice
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.goernhardt.ledhttpservice", appContext.packageName)
+        assertEquals("com.allnet.ledhttpservice", appContext.packageName)
     }
 }

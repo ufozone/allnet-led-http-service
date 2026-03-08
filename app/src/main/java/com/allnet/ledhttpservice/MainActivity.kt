@@ -1,4 +1,4 @@
-package com.goernhardt.ledhttpservice
+package com.allnet.ledhttpservice
 
 import android.content.Intent
 import android.os.Bundle
@@ -18,7 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.goernhardt.ledhttpservice.ui.theme.LEDHTTPServiceTheme
+import com.allnet.ledhttpservice.ui.theme.LEDHTTPServiceTheme
 import java.net.Inet4Address
 import java.net.NetworkInterface
 

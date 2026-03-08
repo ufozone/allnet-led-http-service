@@ -1,4 +1,4 @@
-package com.goernhardt.ledhttpservice
+package com.allnet.ledhttpservice
 
 import fi.iki.elonen.NanoHTTPD
 
@@ -16,7 +16,7 @@ class LedHttpServer(port: Int) : NanoHTTPD(port) {
             
             uri == "/status" -> jsonResponse("""{
                 "success": true,
-                "service": "allnet-led-http",
+                "service": "led-http-service",
                 "lastMode": "${LedController.getLastMode()}"
             }""")
             

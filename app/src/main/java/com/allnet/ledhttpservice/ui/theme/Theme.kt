@@ -1,4 +1,4 @@
-package com.goernhardt.ledhttpservice.ui.theme
+package com.allnet.ledhttpservice.ui.theme
 
 import android.app.Activity
 import android.os.Build

@@ -1,4 +1,4 @@
-package com.goernhardt.ledhttpservice
+package com.allnet.ledhttpservice
 
 import android.content.Context
 import android.content.SharedPreferences

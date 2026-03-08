@@ -1,4 +1,4 @@
-package com.goernhardt.ledhttpservice
+package com.allnet.ledhttpservice
 
 object WakeHelper {
     fun wakeDevice() {

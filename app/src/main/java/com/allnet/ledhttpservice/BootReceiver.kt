@@ -1,4 +1,4 @@
-package com.goernhardt.ledhttpservice
+package com.allnet.ledhttpservice
 
 import android.content.BroadcastReceiver
 import android.content.Context

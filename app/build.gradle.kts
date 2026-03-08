@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.goernhardt.ledhttpservice"
+    namespace = "com.allnet.ledhttpservice"
     // compileSdk must be at least 34/35 to build modern dependencies (Compose, Jetpack libraries),
     // even when targeting older Android versions like 10 (API 29).
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.goernhardt.ledhttpservice"
+        applicationId = "com.allnet.ledhttpservice"
         minSdk = 29
         targetSdk = 33
         versionCode = 1

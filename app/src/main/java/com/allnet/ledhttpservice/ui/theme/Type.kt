@@ -1,4 +1,4 @@
-package com.goernhardt.ledhttpservice.ui.theme
+package com.allnet.ledhttpservice.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
