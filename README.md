@@ -3,16 +3,17 @@
 ## Overview
 LED HTTP Service is an Android application specifically designed for the **ALLNET Meeting Room RGB LED Tablet RK3399 Android 10**. It acts as a bridge between your network and the tablet's hardware LED bar, exposing a local HTTP API to control the light frame remotely.
 
-The app is built to be a robust background utility, running as a persistent Foreground Service that automatically starts on system boot. This ensures that the LED control remains available at all times without manual intervention, making it ideal for integration with room booking systems, automation platforms, or status indicators.
+The app is built to be a robust background utility, running as a persistent Foreground Service that automatically starts on system boot. It handles complex hardware behaviors, such as mandatory display activation and state-dependent timing, ensuring reliable LED control for integration with room booking systems and automation platforms.
 
 ## Features
-- **Local HTTP API**: Lightweight server (NanoHTTPD) running on port 8080.
+- **Local HTTP API**: Lightweight NanoHTTPD server running on port 8080.
 - **Hardware LED Control**: Direct manipulation of the RGB LED bar via root-level sysfs commands.
-- **Smart Display Management**: Automatically wakes the tablet display before every LED command sequence, as required by the hardware.
+- **Adaptive Hardware Timing**: Detects if the display was off and applies robust delays and retries to ensure command registration.
+- **Smart Display Management**: Automatically wakes the tablet display before every LED command sequence.
 - **Persistent State**: Remembers the last set mode across service restarts and reboots.
 - **Auto-Start on Boot**: Automatically initializes the service when the tablet finishes booting.
-- **Foreground Service**: Ensures Android does not kill the process during background operation.
-- **Material 3 Dashboard**: Clean, tablet-optimized local UI to monitor service status and manually test modes.
+- **Foreground Service**: Maintains a persistent background process with a system notification.
+- **Material 3 Dashboard**: Polished, tablet-optimized local UI to monitor status and manually test modes.
 
 ## Hardware / Target Device
 This application is specifically developed and tested for:
@@ -26,23 +27,25 @@ This application is specifically developed and tested for:
 The LED bar is controlled by writing specific hex codes to the kernel's platform driver:
 `sh -c "echo 'w $CODE' > /sys/devices/platform/led_con_h/zigbee_reset"`
 
-### Display Wake Logic
-On this specific hardware, the LED controller only accepts state changes when the display is active. Before every command sequence, the app executes:
-`input keyevent KEYCODE_WAKEUP`
+### Intelligent Wakeup & Timing
+On this hardware, the LED controller is only reliable when the display is active. The app handles this automatically:
+1.  **Detection**: Checks `PowerManager.isInteractive()` to see if the screen was off.
+2.  **Wakeup**: Executes `input keyevent KEYCODE_WAKEUP`.
+3.  **Adaptive Delay**: 
+    - If display was **OFF**: Waits **4000ms** (4s) for hardware initialization.
+    - If display was **ON**: Waits **250ms**.
+4.  **Sequence Reliability**: 
+    - If the display was previously off, the app automatically **retries** the target LED command after a **250ms** interval to ensure the hardware bus processes the change.
 
-### Power-On Sequence
-If the device is currently in the `off` mode, it must be logically "powered on" before a color can be applied. When switching from `off` or `unknown` to a color/effect (not `off` or `on`), the app:
-1. Wakes the display.
-2. Sends the internal `on` (0x03) command.
-3. Waits for the hardware to stabilize (approx. 500ms).
-4. Sends the requested target mode.
+### Power-On Logic
+If the device is currently in the `off` mode, it must be logically "powered on" before a color can be applied. When switching from `off` or `unknown` to a color/effect, the app sends the internal `on` (0x03) command and waits **500ms** before applying the final target mode.
 
 ## LED Modes
-The following modes are supported by the public API, listed in their logical groupings:
+The following modes are supported by the public API, listed in their logical order:
 
-**Brightness & Power**
-- `dim_up`, `dim_down`
+**Power & Brightness**
 - `off`, `on`
+- `dim_up`, `dim_down`
 
 **Base Colors**
 - `red`, `green`, `blue`, `white`
@@ -68,7 +71,7 @@ Returns a tablet-friendly HTML control panel for manual interaction.
 
 #### 3. Service Status
 `GET /status`
-- **Response**: 
+- **Response**:
   ```json
   {
     "success": true,
@@ -97,14 +100,11 @@ Returns a tablet-friendly HTML control panel for manual interaction.
 
 ## Example curl Commands
 ```bash
-# Set the LED to red
+# Set mode to red
 curl "http://TABLET_IP:8080/led?mode=red"
 
-# Turn the LED off
+# Turn LED off
 curl "http://TABLET_IP:8080/led/off"
-
-# Check if the service is alive
-curl "http://TABLET_IP:8080/health"
 
 # Get current state
 curl "http://TABLET_IP:8080/status"
@@ -130,25 +130,25 @@ Alternatively, use the Gradle wrapper from the terminal:
 
 ## Permissions & Android Behavior
 The app declares and uses the following:
-- `INTERNET`: For the NanoHTTPD server.
-- `RECEIVE_BOOT_COMPLETED`: To start the service automatically after restart.
-- `WAKE_LOCK`: To ensure the CPU stays active during command processing.
-- `FOREGROUND_SERVICE`: To maintain a persistent background state.
-- `usesCleartextTraffic="true"`: Required for HTTP local network access.
+-   `INTERNET`: For the NanoHTTPD server.
+-   `RECEIVE_BOOT_COMPLETED`: To start the service automatically after restart.
+-   `WAKE_LOCK`: To ensure the CPU stays active during command processing.
+-   `FOREGROUND_SERVICE`: To maintain a persistent background state.
+-   `usesCleartextTraffic="true"`: Required for HTTP local network access.
 
 ## Project Structure
-- `LedService`: Manages the lifecycle of the HTTP server and the foreground notification.
-- `LedHttpServer`: Implements the NanoHTTPD logic and endpoint routing.
-- `LedController`: Handles the logical state, color mapping, and hardware timing.
-- `ShellExecutor`: Utility for executing commands via `su`.
-- `WakeHelper`: Encapsulates the display wake logic.
-- `BootReceiver`: Triggers the service on system startup.
-- `MainActivity`: Provides the Material 3 dashboard UI.
+-   `LedService`: Manages the lifecycle of the HTTP server and the foreground notification.
+-   `LedHttpServer`: Implements the NanoHTTPD logic and endpoint routing.
+-   `LedController`: Core logic for state persistence, color mapping, and adaptive timing.
+-   `ShellExecutor`: Robustly executes root commands and captures `ShellResult` (success, exitCode, stdout, stderr).
+-   `WakeHelper`: Checks interactive state and manages display wakeup.
+-   `BootReceiver`: Triggers the service on system startup.
+-   `MainActivity`: Provides the Material 3 dashboard UI.
 
 ## Notes & Caveats
-- **Root Required**: This app will not function without root access. It must be able to call `su`.
-- **Hardware Specific**: The sysfs path used (`/sys/devices/platform/led_con_h/zigbee_reset`) is specific to the ALLNET RK3399 tablet series.
-- **Display Dependency**: LED commands are only reliable when the display is awake. The app handles this, but the display will briefly turn on during every LED change.
+-   **Root Required**: This app will not function without root access. It must be able to call `su`.
+-   **Hardware Specific**: Tested exclusively on the ALLNET RK3399 series.
+-   **Display Dependency**: LED commands are only reliable when the display is awake. The app handles this, but the display will briefly turn on during every LED change.
 
 ## License
 This project is licensed under the MIT License. See the LICENSE file for details.

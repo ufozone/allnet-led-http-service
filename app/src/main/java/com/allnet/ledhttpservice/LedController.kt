@@ -14,8 +14,10 @@ object LedController {
     private const val KEY_LAST_MODE = "last_mode"
 
     // Timing Constants
-    private const val DELAY_WAKE = 200L
-    private const val DELAY_POST_ON = 500L
+    private const val DELAY_WAKE_LONG = 4000L   // Delay if display was off
+    private const val DELAY_WAKE_SHORT = 250L   // Delay if display was already on
+    private const val DELAY_POST_ON = 500L      // Delay after internal 'on' command
+    private const val DELAY_RETRY = 250L        // Delay between retries if display was off
 
     // LinkedHashMap to preserve the logical order of modes
     private val modeMap = linkedMapOf(
@@ -50,86 +52,89 @@ object LedController {
         "smooth" to "0x17"
     )
 
+    private var appContext: Context? = null
     private var prefs: SharedPreferences? = null
 
     /**
      * Initializes the controller with a context to enable disk persistence.
-     * Must be called before any other method.
      */
     fun init(context: Context) {
-        prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val app = context.applicationContext
+        appContext = app
+        prefs = app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    /**
-     * Internal helper to ensure preferences are initialized.
-     */
-    private fun getPrefs(): SharedPreferences {
-        return checkNotNull(prefs) { "LedController must be initialized by calling init(context) before use." }
-    }
+    private fun getContext(): Context = checkNotNull(appContext) { "LedController must be initialized." }
+    private fun getPrefs(): SharedPreferences = checkNotNull(prefs) { "LedController must be initialized." }
 
-    /**
-     * Returns a list of all supported mode names in logical order.
-     */
     fun getAvailableModes(): List<String> = modeMap.keys.toList()
 
-    /**
-     * Returns the last successfully set mode from memory or disk.
-     */
     fun getLastMode(): String {
         return getPrefs().getString(KEY_LAST_MODE, "unknown") ?: "unknown"
     }
 
     /**
-     * Sets the LED to the specified mode, handling power transitions and device wakeup.
-     * @param modeName The name of the mode to set.
-     * @return True if the command(s) were successfully executed.
+     * Sets the LED mode, applying robust timing and retries if the display was previously off.
      */
     fun setLed(modeName: String): Boolean {
         val normalizedMode = modeName.lowercase()
         val code = modeMap[normalizedMode] ?: return false
         val currentLastMode = getLastMode()
+        
+        // 1. Detect display state BEFORE waking
+        val wasDisplayOff = !WakeHelper.isInteractive(getContext())
+        Log.d(TAG, "Request: $normalizedMode (Display off: $wasDisplayOff, Previous: $currentLastMode)")
 
-        Log.d(TAG, "Request: $normalizedMode (Previous: $currentLastMode)")
-
-        // 1. Always wake the device and wait for stabilization
+        // 2. Always wake the device
         WakeHelper.wakeDevice()
-        sleep(DELAY_WAKE)
 
-        // 2. Handle transition from OFF/UNKNOWN to a specific color or effect
-        if ((currentLastMode == "off" || currentLastMode == "unknown") && 
-            (normalizedMode != "off" && normalizedMode != "on")) {
-            
+        // 3. Apply appropriate delay after wake
+        sleep(if (wasDisplayOff) DELAY_WAKE_LONG else DELAY_WAKE_SHORT)
+
+        // 4. Command Execution Logic
+        if ((currentLastMode == "off" || currentLastMode == "unknown") && normalizedMode != "on" && normalizedMode != "off") {
             Log.d(TAG, "State transition detected. Sending internal ON command (0x03).")
             val onResult = ShellExecutor.executeRootCommand(getCommand("0x03"))
-            if (!onResult) {
-                Log.e(TAG, "Internal ON command failed. Aborting.")
+            if (!onResult.success) {
+                Log.e(TAG, "Initial ON failed. Stderr: ${onResult.stderr}")
                 return false
             }
             sleep(DELAY_POST_ON)
         }
 
-        // 3. Execute the target mode command (one-shot)
+        // 5. Execute the target mode command
         Log.d(TAG, "Executing target mode: $normalizedMode ($code)")
-        val success = ShellExecutor.executeRootCommand(getCommand(code))
+        val success = executeWithRetryIfNeed(code, wasDisplayOff)
 
-        // 4. Persist and return
+        // 6. Persist and return
         if (success) {
             Log.d(TAG, "Successfully applied $normalizedMode.")
             getPrefs().edit().putString(KEY_LAST_MODE, normalizedMode).apply()
-        } else {
+        }
+        else {
             Log.e(TAG, "Failed to apply $normalizedMode.")
         }
-
         return success
     }
 
-    private fun sleep(millis: Long) {
-        try {
-            Thread.sleep(millis)
-        } catch (e: InterruptedException) {
-            Log.w(TAG, "Sleep interrupted: ${e.message}")
-            Thread.currentThread().interrupt()
+    /**
+     * Executes the root command, with an optional retry if the display was previously off.
+     */
+    private fun executeWithRetryIfNeed(code: String, shouldRetry: Boolean): Boolean {
+        val firstAttempt = ShellExecutor.executeRootCommand(getCommand(code))
+        if (!firstAttempt.success) return false
+        
+        if (shouldRetry) {
+            sleep(DELAY_RETRY)
+            val secondAttempt = ShellExecutor.executeRootCommand(getCommand(code))
+            return secondAttempt.success
         }
+        
+        return true
+    }
+
+    private fun sleep(millis: Long) {
+        try { Thread.sleep(millis) } catch (e: InterruptedException) { Thread.currentThread().interrupt() }
     }
 
     private fun getCommand(code: String): String {
