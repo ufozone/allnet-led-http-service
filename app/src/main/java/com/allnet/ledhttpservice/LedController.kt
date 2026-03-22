@@ -22,8 +22,8 @@ object LedController {
     // LinkedHashMap to preserve the logical order of modes
     private val modeMap = linkedMapOf(
         // Brightness
-        "dim_up" to "0x00",
-        "dim_down" to "0x01",
+        //"dim_up" to "0x00",
+        //"dim_down" to "0x01",
         // Power
         "off" to "0x02",
         "on" to "0x03",

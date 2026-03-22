@@ -43,9 +43,8 @@ If the device is currently in the `off` mode, it must be logically "powered on" 
 ## LED Modes
 The following modes are supported by the public API, listed in their logical order:
 
-**Power & Brightness**
+**Power**
 - `off`, `on`
-- `dim_up`, `dim_down`
 
 **Base Colors**
 - `red`, `green`, `blue`, `white`
@@ -82,7 +81,7 @@ Returns a tablet-friendly HTML control panel for manual interaction.
 
 #### 4. List Available Modes
 `GET /modes`
-- **Response**: `{"modes": ["dim_up", "dim_down", "off", "on", ... ]}`
+- **Response**: `{"modes": ["off", "on", ... ]}`
 
 #### 5. Wake Display
 `GET /wake`
